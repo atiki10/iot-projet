@@ -1,6 +1,7 @@
 package com.tracksecure.mqttrestapp.kafka.consumer;
 
 import com.tracksecure.mqttrestapp.model.SensorData;
+import com.tracksecure.mqttrestapp.websocket.SensorWebSocketHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,12 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class KafkaConsumerService {
+
+    private final SensorWebSocketHandler sensorWebSocketHandler;
+
+    public KafkaConsumerService(SensorWebSocketHandler sensorWebSocketHandler) {
+        this.sensorWebSocketHandler = sensorWebSocketHandler;
+    }
 
     @KafkaListener(topics = "${kafka.topic.sensor-data}", groupId = "${spring.kafka.consumer.group-id}")
     public void consume(SensorData sensorData) {
@@ -27,6 +34,13 @@ public class KafkaConsumerService {
                     sensorData.getGpsData().getLatitude(),
                     sensorData.getGpsData().getLongitude(),
                     sensorData.getGpsData().getSatellites());
+            }
+
+            // Broadcast to connected WebSocket clients
+            try {
+                sensorWebSocketHandler.broadcastSensorData(sensorData);
+            } catch (Exception e) {
+                log.warn("⚠️ Failed to broadcast sensor data over WebSocket: {}", e.getMessage(), e);
             }
             
             // TODO: Save to database
